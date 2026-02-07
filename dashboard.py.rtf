@@ -1,0 +1,74 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2867
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import streamlit as st\
+import pandas as pd\
+import json\
+import os\
+import time\
+import asyncio\
+import websockets\
+import threading\
+\
+POS_FILE = 'kalshi_positions.json'\
+LOG_FILE = 'kalshi_bot.log'\
+CONFIG_FILE = 'kalshi_config.json'\
+\
+async def ws_listener():\
+    uri = "ws://127.0.0.1:8765"\
+    try:\
+        async with websockets.connect(uri) as ws:\
+            while True:\
+                msg = await ws.recv()\
+                st.session_state['live_data'] = json.loads(msg)\
+    except Exception as e:\
+        st.error(f"WebSocket error: \{e\}")\
+\
+if 'live_data' not in st.session_state:\
+    st.session_state['live_data'] = \{"positions": \{\}, "logs": [], "arb_opps": []\}\
+    threading.Thread(target=asyncio.run, args=(ws_listener(),), daemon=True).start()\
+\
+st.title("GrokKalshiArb Dashboard")\
+st.write("Live Kalshi monitoring \'95 Orlando, FL \'95 Feb 2026")\
+\
+tab1, tab2, tab3 = st.tabs(["Positions", "Logs", "Arbitrage Opportunities"])\
+\
+with tab1:\
+    st.subheader("Current Positions")\
+    data = st.session_state['live_data'].get('positions', \{\})\
+    if data:\
+        rows = []\
+        for mid, pos in data.items():\
+            rows.append(\{\
+                'Market': mid,\
+                'Side': pos.get('side', '?'),\
+                'Quantity': pos.get('qty', 0),\
+                'Entry Price': pos.get('entry_price', 0)\
+            \})\
+        st.dataframe(pd.DataFrame(rows))\
+    else:\
+        st.info("No positions loaded yet")\
+\
+with tab2:\
+    st.subheader("Recent Logs")\
+    logs = st.session_state['live_data'].get('logs', [])\
+    st.text_area("Logs", "\\n".join(logs[-30:]), height=400)\
+\
+with tab3:\
+    st.subheader("Detected Arbitrage Opportunities")\
+    opps = st.session_state['live_data'].get('arb_opps', [])\
+    if opps:\
+        st.dataframe(pd.DataFrame(opps))\
+    else:\
+        st.info("No arbitrage opportunities right now")\
+\
+st.markdown("---")\
+if st.button("Refresh Now"):\
+    st.rerun()\
+\
+time.sleep(10)\
+st.rerun()}
